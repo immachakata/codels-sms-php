@@ -1,6 +1,6 @@
 # Codel SMS PHP Wrapper
 
-[![CI Test Package](https://github.com/immachakata/codels-sms/actions/workflows/ci-test.yml/badge.svg)](https://github.com/immachakata/codels-sms/actions/workflows/ci-test.yml) 
+[![CI Test Package](https://github.com/immachakata/codels-sms-php/actions/workflows/ci-test.yml/badge.svg)](https://github.com/immachakata/codels-sms-php/actions/workflows/ci-test.yml) 
 ![Packagist Version](https://img.shields.io/packagist/v/immachakata/codelsms)
 ![Packagist Downloads](https://img.shields.io/packagist/dt/immachakata/codelsms)
 ![Packagist License](https://img.shields.io/packagist/l/immachakata/codelsms)
