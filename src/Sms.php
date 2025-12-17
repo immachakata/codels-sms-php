@@ -28,7 +28,11 @@ class Sms
     public static function new(string $destination, ?string $message = null, ?string $reference = null, ?string $timestamp = null, ?string $validity = '03:00'): self
     {
         // make sure optional variables are populated
-        if (empty($timestamp)) $timestamp = time();
+        if (empty($timestamp)) {
+            $timestamp = time();
+        } elseif ($timestamp >= time() && $validity == '03:00') {
+            $validity = date('H:i', $timestamp);
+        }
         if (empty($reference)) $reference = uniqid();
 
         // set values to the properties
