@@ -70,12 +70,6 @@ final class Client //implements ClientInterface
     public function send(string|array|Sms $receivers, $messages = null): Response
     {
         // if instance of Sms passed, break data
-        if ($receivers instanceof Sms) {
-            $data = $receivers->toArray();
-            $messages = $data['messageText'];
-            $receivers = $data['destination'];
-        }
-
         if ($messages instanceof Sms) {
             $data = $messages->toArray();
             $messages = $data['messageText'];
@@ -135,7 +129,7 @@ final class Client //implements ClientInterface
      * @param string|array $receivers
      * @param string|array $messages
      */
-    private function sendMessages(string|array|Sms $receivers, string|array|null $messages)
+    private function sendMessages(string|array|Sms $receivers, string|array|null $messages = null)
     {
         if (empty($messages) && !$this->templateCallback && (is_string($receivers) || is_array($receivers))) {
             throw new \Exception('Message(s) can not be empty.');
