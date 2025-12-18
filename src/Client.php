@@ -162,22 +162,28 @@ final class Client //implements ClientInterface
      * @throws \Exception
      * @return Response
      */
-    private function sendSingleMessage(string $receiver, string $message)
+    private function sendSingleMessage(string|Sms $receiver, ?string $message)
     {
-        if (empty($message)) {
+        $smsObject = null;
+        if (empty($message) && is_string($receiver)) {
             throw new \Exception('Message can not be empty.');
         }
 
-        $requestJson = [
-            ...Sms::new($receiver, $message)->toArray(),
-            'token' => $this->config,
-        ];
+        if (is_string($receiver)) {
+            $smsObject = Sms::new($receiver, $message);
+        } else if ($receiver instanceof Sms) {
+            $smsObject = $receiver;
+        }
+
+        $requestJson = ['token' => $this->config, ...$smsObject->toArray()];
+
         if (!empty($this->senderID)) {
             $requestJson['sender_id'] = $this->senderID;
             $uri = Urls::BASE_URL . Urls::SINGLE_SMS_ENDPOINT;
         } else {
             $uri = Urls::BASE_URL . Urls::SINGLE_SMS_ENDPOINT_DEFAULT_SENDER;
         }
+        
         $response = $this->client->request('post', $uri, [
             'headers' => [
                 'Accept' => 'application/json'
@@ -256,7 +262,7 @@ final class Client //implements ClientInterface
                     $message = Sms::new($receiver, $message);
                 }
 
-                if($message instanceof Sms) {
+                if ($message instanceof Sms) {
                     $message = $message->toArray();
                 }
 
