@@ -227,13 +227,11 @@ final class Client //implements ClientInterface
             // sometimes the message can be a string
             if (is_string($messages)) {
                 $message = $messages;
-
-                // sometimes the message can be an array of messages, indexed by phone no
             } else if (is_array($messages) && !array_is_list($messages)) {
+                // sometimes the message can be an array of messages, indexed by phone no
                 $message = $messages[$receiver];
-
-                // sometimes the message can be an array of messages, indexed by index
             } else if (is_array($messages) && array_is_list($messages)) {
+                // sometimes the message can be an array of messages, indexed by index
                 $message = $messages[$index];
             } else {
                 $message = null;
@@ -254,7 +252,15 @@ final class Client //implements ClientInterface
                     throw new \Exception('Callback function should return an Sms instance or message string.');
                 }
             } else {
-                $smsObjects[] = Sms::new($receiver, $message)->toArray();
+                if (is_string($messages)) {
+                    $message = Sms::new($receiver, $message);
+                }
+
+                if($message instanceof Sms) {
+                    $message = $message->toArray();
+                }
+
+                $smsObjects[] = $message;
             }
         }
         $requestJson['payload']['messages'] = $smsObjects;
