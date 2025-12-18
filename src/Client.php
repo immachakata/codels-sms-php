@@ -135,10 +135,15 @@ final class Client //implements ClientInterface
      * @param string|array $receivers
      * @param string|array $messages
      */
-    private function sendMessages(string|array $receivers, string|array|null $messages)
+    private function sendMessages(string|array|Sms $receivers, string|array|null $messages)
     {
-        if (empty($messages) && !$this->templateCallback) {
+        if (empty($messages) && !$this->templateCallback && (is_string($receivers) || is_array($receivers))) {
             throw new \Exception('Message(s) can not be empty.');
+        }
+
+        // if receivers is Sms, send message
+        if ($receivers instanceof Sms && is_null($messages)) {
+            return $this->sendSingleMessage($receivers);
         }
 
         // check if receivers is comma separated
@@ -162,20 +167,17 @@ final class Client //implements ClientInterface
      * @throws \Exception
      * @return Response
      */
-    private function sendSingleMessage(string|Sms $receiver, ?string $message)
+    private function sendSingleMessage(string|Sms $receiver, ?string $message = null)
     {
-        $smsObject = null;
         if (empty($message) && is_string($receiver)) {
             throw new \Exception('Message can not be empty.');
         }
 
         if (is_string($receiver)) {
-            $smsObject = Sms::new($receiver, $message);
-        } else if ($receiver instanceof Sms) {
-            $smsObject = $receiver;
+            $receiver = Sms::new($receiver, $message);
         }
 
-        $requestJson = ['token' => $this->config, ...$smsObject->toArray()];
+        $requestJson = ['token' => $this->config, ...$receiver->toArray()];
 
         if (!empty($this->senderID)) {
             $requestJson['sender_id'] = $this->senderID;
@@ -183,7 +185,7 @@ final class Client //implements ClientInterface
         } else {
             $uri = Urls::BASE_URL . Urls::SINGLE_SMS_ENDPOINT_DEFAULT_SENDER;
         }
-        
+
         $response = $this->client->request('post', $uri, [
             'headers' => [
                 'Accept' => 'application/json'
