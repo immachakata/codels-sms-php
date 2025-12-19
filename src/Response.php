@@ -44,9 +44,10 @@ class Response implements ResponseInterface
     }
     public function isOk(): bool
     {
-        return strtoupper($this->getMessageStatus()) != "FAILED";
+        $results = ['FAILED', 'ERROR'];
+        return !in_array(strtoupper($this->getMessageStatus()), $results);
     }
-    public function getBody() : array|object
+    public function getBody(): array|object
     {
         if ($this->bulkMessages) {
             return $this->responseBody;
