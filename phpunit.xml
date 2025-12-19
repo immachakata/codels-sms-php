@@ -8,6 +8,7 @@
          beStrictAboutCoverageMetadata="true"
          beStrictAboutOutputDuringTests="true"
          failOnRisky="true"
+         testdox="true"
          failOnWarning="true">
     <testsuites>
         <testsuite name="default">
