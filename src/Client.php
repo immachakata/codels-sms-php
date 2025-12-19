@@ -69,10 +69,8 @@ final class Client //implements ClientInterface
      */
     public function send(string|array|Sms $receivers, $messages = null): Response
     {
-        // if instance of Sms passed, break data
-        if ($messages instanceof Sms) {
-            $data = $messages->toArray();
-            $messages = $data['messageText'];
+        if (is_string($messages) && !empty($messages) && !$receivers instanceof Sms) {
+            $messages = Sms::new($messages);
         }
         return $this->sendMessages($receivers, $messages);
     }
@@ -129,20 +127,33 @@ final class Client //implements ClientInterface
      * @param string|array $receivers
      * @param string|array $messages
      */
-    private function sendMessages(string|array|Sms $receivers, string|array|null $messages = null)
+    private function sendMessages(string|array|Sms $receivers, Sms|string|array|null $messages = null)
     {
-        if (empty($messages) && !$this->templateCallback && (is_string($receivers) || is_array($receivers))) {
+        // check if receivers is comma separated
+        if (is_string($receivers) && is_int(strpos($receivers, ','))) {
+            $receivers = explode(',', $receivers);
+        }
+
+        // check if user provided a list of receivers and an Sms instance
+        if ($messages instanceof Sms && is_array($receivers) && array_is_list($receivers)) {
+            $texts = [];
+
+            // create a new Sms object for each text
+            foreach ($receivers as $index => $receiver) {
+                if (!$receiver) continue;
+                $texts[] = $messages::setReceiver($receiver);
+            }
+
+            return $this->sendBulkMessages($receivers, $texts);
+        }
+
+        if (empty($messages) && !$this->templateCallback && !$receivers instanceof Sms) {
             throw new \Exception('Message(s) can not be empty.');
         }
 
         // if receivers is Sms, send message
         if ($receivers instanceof Sms && is_null($messages)) {
             return $this->sendSingleMessage($receivers);
-        }
-
-        // check if receivers is comma separated
-        if (is_string($receivers) && is_int(strpos($receivers, ','))) {
-            $receivers = explode(',', $receivers);
         }
 
         if (is_string($receivers)) {
@@ -157,17 +168,21 @@ final class Client //implements ClientInterface
      * Processes configurations and sends a single message
      *
      * @param string $receiver
-     * @param string $message
+     * @param string|Sms $message
      * @throws \Exception
      * @return Response
      */
-    private function sendSingleMessage(string|Sms $receiver, ?string $message = null)
+    private function sendSingleMessage(string|Sms $receiver, string|Sms|null $message = null)
     {
         if (empty($message) && is_string($receiver)) {
             throw new \Exception('Message can not be empty.');
         }
 
-        if (is_string($receiver)) {
+        if (is_string($receiver) && $message instanceof Sms) {
+            $receiver = $message::setReceiver($receiver);
+        }
+
+        if (is_string($receiver) && is_string($message)) {
             $receiver = Sms::new($receiver, $message);
         }
 
@@ -195,7 +210,7 @@ final class Client //implements ClientInterface
      * @param Sms $sms
      * @throws \Exception
      */
-    private function sendBulkMessages(array $receivers, string|array|null $messages)
+    private function sendBulkMessages(array|Sms $receivers, string|array|null $messages)
     {
         if (empty($messages) && !$this->templateCallback) {
             throw new \Exception('Message can not be empty.');
@@ -286,5 +301,22 @@ final class Client //implements ClientInterface
             'json' => $requestJson,
         ]);
         return new Response($response, true);
+    }
+    private function validBulkSmsReceivers(array|string $receivers)
+    {
+        if (is_string($receivers) && is_int(strpos($receivers, ','))) {
+            $receivers = explode(',', $receivers);
+        }
+
+        if (!array_is_list($receivers)) {
+            return false;
+        }
+
+        // check status of receiver
+        if (!($receivers[0] instanceof Sms) || !is_array($receivers[0])) {
+            return false;
+        }
+
+        return true;
     }
 }
