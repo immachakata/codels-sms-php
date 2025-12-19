@@ -7,12 +7,23 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use IsaacMachakata\CodelSms\Exception\MalformedConfigException;
+use IsaacMachakata\CodelSms\Sms;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class ClientTest extends TestCase
 {
     private Client $client;
     private MockHandler $mockHandler;
+    const FAKE_SUCCESS_RESPONSE =  [
+        ['status' => [
+            'error_status' => 'success'
+        ]]
+    ];
+    const FAKE_ERROR_RESPONSE = [
+        ['status' => [
+            'error_status' => 'failed'
+        ]]
+    ];
 
     protected function setUp(): void
     {
@@ -30,6 +41,25 @@ class ClientTest extends TestCase
         $property->setValue($this->client, $mockGuzzleClient);
     }
 
+    protected function mockSuccess(?int $httpCode = 200, ?array $response = null)
+    {
+        if (null === $response) {
+            $response = self::FAKE_SUCCESS_RESPONSE;
+        }
+        $this->mockHandler->append(new Response($httpCode, [
+            // nothing here
+        ], json_encode($response)));
+    }
+    protected function mockFailure(?int $httpCode = 400, ?array $response = null)
+    {
+        if (null === $response) {
+            $response = self::FAKE_ERROR_RESPONSE;
+        }
+        $this->mockHandler->append(new Response($httpCode, [
+            // nothing here
+        ], json_encode($response)));
+    }
+
     public function testInvalidConfigurationsThrowsErrors()
     {
         $this->expectException(MalformedConfigException::class);
@@ -40,7 +70,9 @@ class ClientTest extends TestCase
     public function testGetBalance()
     {
         // Queue a mock response
-        $this->mockHandler->append(new Response(200, [], json_encode(['sms_credit_balance' => 500])));
+        $this->mockSuccess(200, [
+            'sms_credit_balance' => 500
+        ]);
 
         $balance = $this->client->getBalance();
         $this->assertIsInt($balance);
@@ -50,12 +82,17 @@ class ClientTest extends TestCase
     public function testSendSingleMessage()
     {
         // Queue a mock response
-        $this->mockHandler->append(new Response(200, [], json_encode(['status' => 'success'])));
+        $this->mockSuccess(200, ['status' => 'success']);
         $response = $this->client->send('263771000001', 'Test message');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertTrue($response->isOk());
 
-        $this->mockHandler->append(new Response(200, [], json_encode(['status' => 'failed'])));
+        $this->mockSuccess(200, ['status' => 'success']);
+        $response = $this->client->send(Sms::new("263771000001", 'Test message'));
+        $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
+        $this->assertTrue($response->isOk());
+
+        $this->mockFailure(200, ['status' => 'error']);
         $response = $this->client->send('263771000001', 'Test message');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertFalse($response->isOk());
@@ -63,13 +100,6 @@ class ClientTest extends TestCase
 
     public function testSendBulkMessages()
     {
-        // Queue a mock response
-        $fakeResponse = [
-            ['status' => [
-                'error_status' => 'success'
-            ]]
-        ];
-
         $phoneNumbers = [
             '263771000001',
             '263772000002',
@@ -77,19 +107,27 @@ class ClientTest extends TestCase
         $this->expectException(\Exception::class);
         $response = $this->client->send($phoneNumbers, 'Test message');
 
-        $this->mockHandler->append(new Response(200, [], json_encode($fakeResponse)));
+        $this->mockSuccess(200);
         $this->client->setSenderId('test-sender');
         $response = $this->client->send($phoneNumbers, 'Test message');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertTrue($response->isOk());
 
-        $this->mockHandler->append(new Response(200, [], json_encode($fakeResponse)));
+        $this->mockSuccess(200);
         $response = $this->client->send('263771000001,263771000002', 'Test message');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertTrue($response->isOk());
 
-        $fakeResponse[0]['status']['error_status'] = "failed";
-        $this->mockHandler->append(new Response(200, [], json_encode($fakeResponse)));
+        $this->mockSuccess(200);
+        $response = $this->client->send('263771000001,263771000002', [
+            Sms::new('263771000001', "Hie there!", null, strtotime("+5 minutes")),
+            Sms::new('263771000002', "Hie there!", null, strtotime("+5 minutes")),
+        ]);
+        $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
+        $this->assertTrue($response->isOk());
+
+        // test fail
+        $this->mockFailure(200);
         $response = $this->client->send('263771000001,', 'Test message');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertFalse($response->isOk());
@@ -99,14 +137,57 @@ class ClientTest extends TestCase
     {
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Number of receivers and messages do not match.');
-        $this->client->send(['263771000001', '2637710000002','2637710000003'], ['message1', 'message2']);
+        $this->client->send(['263771000001', '2637710000002', '2637710000003'], ['message1', 'message2']);
     }
 
     public function testSendThrowsExceptionWithEmptyMessage()
     {
+        $this->mockSuccess();
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Message(s) can not be empty.');
+
+        $this->client->send('263771000001', '');
+
+        $this->mockSuccess();
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Message(s) can not be empty.');
 
         $this->client->send(['263771000001'], '');
+    }
+
+    public function testPersonalizedMessagesWithoutSenderName()
+    {
+        $this->mockSuccess();
+        $this->client->setCallback(function ($receiver, $message) {
+            return Sms::new($receiver, "Hie there!", null, strtotime("+5 minutes"));
+        });
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Sender ID is required for bulk messages.');
+        $response = $this->client->send('263771000001,263771000002');
+    }
+
+    public function testSendPersonalizedMessagesWithSuccess()
+    {
+        $this->mockSuccess();
+        $this->client->setSenderId('test-sender');
+        $this->client->setCallback(function ($receiver, $message) {
+            return Sms::new($receiver, "Hie there!", null, strtotime("+5 minutes"));
+        });
+        $response = $this->client->send('263771000001,263771000002');
+        $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
+        $this->assertTrue($response->isOk());
+
+        $users = [
+            '263771000001' => ['name' => 'John', 'bill' => 150.75],
+            '263772000002' => ['name' => 'Jane', 'bill' => 200.00],
+        ];
+        $phoneNumbers = array_keys($users);
+        $this->client->setCallback(function ($receiver, $data) {
+            return Sms::new("Dear {$data['name']}, your bill of \${$data['bill']} is due.");
+        });
+        $this->mockSuccess();
+        $response = $this->client->send($phoneNumbers, $users);
+        $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
+        $this->assertTrue($response->isOk());
     }
 }
