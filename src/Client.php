@@ -19,6 +19,7 @@ final class Client //implements ClientInterface
     protected string $senderID = '';
     protected $templateCallback;
     protected Sms $message;
+    protected bool $isBulkSms;
 
     /**
      * @param string $config
@@ -26,6 +27,7 @@ final class Client //implements ClientInterface
     function __construct(?string $config = null, ?string $senderID = null)
     {
         $this->config = $config;
+        $this->isBulkSms = false;
         $this->client = new GuzzleClient();
         $this->processConfigurations();
 
@@ -69,10 +71,17 @@ final class Client //implements ClientInterface
      */
     public function send(string|array|Sms $receivers, $messages = null): Response
     {
-        if (is_string($messages) && !empty($messages) && !$receivers instanceof Sms) {
+        if (is_string($messages) && !empty($messages) && !$receivers instanceof Sms && !$this->templateCallback) {
             $messages = Sms::new($messages);
         }
+
+        $this->isBulkSms = $this->validBulkSmsReceivers($receivers);
         return $this->sendMessages($receivers, $messages);
+    }
+
+    public function isBulkSms(): bool
+    {
+        return $this->isBulkSms;
     }
 
     /**
@@ -256,6 +265,14 @@ final class Client //implements ClientInterface
 
             if ($this->templateCallback) {
                 // callback function should return an Sms instance
+                if ($receiver instanceof Sms) {
+                    $receiver = $receiver->toArray()['destination'];
+                }
+
+                // message should not be an Sms instance
+                if ($message instanceof Sms) {
+                    $message = $message->toArray();
+                }
                 $smsObject = call_user_func($this->templateCallback, $receiver, $message);
 
                 if (is_string($smsObject)) {
@@ -302,21 +319,12 @@ final class Client //implements ClientInterface
         ]);
         return new Response($response, true);
     }
-    private function validBulkSmsReceivers(array|string $receivers)
+    private function validBulkSmsReceivers($receivers)
     {
-        if (is_string($receivers) && is_int(strpos($receivers, ','))) {
-            $receivers = explode(',', $receivers);
+        if (is_array($receivers) && array_is_list($receivers) && count($receivers) > 1) {
+            return true;
         }
 
-        if (!array_is_list($receivers)) {
-            return false;
-        }
-
-        // check status of receiver
-        if (!($receivers[0] instanceof Sms) || !is_array($receivers[0])) {
-            return false;
-        }
-
-        return true;
+        return false;
     }
 }

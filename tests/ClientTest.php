@@ -182,12 +182,20 @@ class ClientTest extends TestCase
             '263772000002' => ['name' => 'Jane', 'bill' => 200.00],
         ];
         $phoneNumbers = array_keys($users);
-        $this->client->setCallback(function ($receiver, $data) {
-            return Sms::new("Dear {$data['name']}, your bill of \${$data['bill']} is due.");
+        $this->client->setCallback(function ($receiver, $user) {
+            return Sms::new("Dear {$user['name']}, your bill of \${$user['bill']} is due.");
         });
         $this->mockSuccess();
         $response = $this->client->send($phoneNumbers, $users);
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
+        $this->assertTrue($response->isOk());
+
+        $this->mockSuccess();
+        $time = strtotime("+2 minutes");
+        $response = $this->client->send(
+            ["263771000001", "263771000002"],
+            Sms::new('263782192384', "Test message scheduled for " . date('H:i', $time), null, $time)
+        );
         $this->assertTrue($response->isOk());
     }
 }
