@@ -37,7 +37,6 @@ class ClientTest extends TestCase
         // Use reflection to replace the Guzzle client with our mock
         $reflection = new ReflectionClass($this->client);
         $property = $reflection->getProperty('client');
-        $property->setAccessible(true);
         $property->setValue($this->client, $mockGuzzleClient);
     }
 
@@ -108,7 +107,7 @@ class ClientTest extends TestCase
         $response = $this->client->send($phoneNumbers, 'Test message');
 
         $this->mockSuccess(200);
-        $this->client->setSenderId('test-sender');
+        $this->client->from('test-sender');
         $response = $this->client->send($phoneNumbers, 'Test message');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertTrue($response->isOk());
@@ -120,8 +119,8 @@ class ClientTest extends TestCase
 
         $this->mockSuccess(200);
         $response = $this->client->send('263771000001,263771000002', [
-            Sms::new('263771000001', "Hie there!", null, strtotime("+5 minutes")),
-            Sms::new('263771000002', "Hie there!", null, strtotime("+5 minutes")),
+            Sms::new('263771000001', "Hie there from #[sbm]!", null, strtotime("+5 minutes")),
+            Sms::new('263771000002', "Hie there from #[sbm]!", null, strtotime("+5 minutes")),
         ]);
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertTrue($response->isOk());
@@ -144,15 +143,23 @@ class ClientTest extends TestCase
     {
         $this->mockSuccess();
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Message(s) can not be empty.');
+        $this->expectExceptionMessage('Message can not be empty.');
+        $this->client->send('263771000001');
 
+        $this->mockSuccess();
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Message can not be empty.');
         $this->client->send('263771000001', '');
 
         $this->mockSuccess();
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Message(s) can not be empty.');
-
+        $this->expectExceptionMessage('Message can not be empty.');
         $this->client->send(['263771000001'], '');
+
+        $this->mockSuccess();
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Message(s) can not be empty.');
+        $this->client->from('demo')->send(['263771000001','263771000002'], '');
     }
 
     public function testPersonalizedMessagesWithoutSenderName()
@@ -163,17 +170,26 @@ class ClientTest extends TestCase
         });
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Sender ID is required for bulk messages.');
-        $response = $this->client->send('263771000001,263771000002');
+        $this->client->send('263771000001,263771000002');
     }
 
     public function testSendPersonalizedMessagesWithSuccess()
     {
         $this->mockSuccess();
-        $this->client->setSenderId('test-sender');
+        $this->client->from('test-sender');
         $this->client->setCallback(function ($receiver, $message) {
             return Sms::new($receiver, "Hie there!", null, strtotime("+5 minutes"));
         });
-        $response = $this->client->send('263771000001,263771000002');
+        $response = $this->client->send('263771000008,263771000002');
+        $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
+        $this->assertTrue($response->isOk());
+
+        $this->mockSuccess();
+        $this->client->from('test-sender');
+        $this->client->setCallback(function ($receiver, $message) {
+            return Sms::new($receiver, "Hie there!", null, strtotime("+5 minutes"));
+        });
+        $response = $this->client->send('263771000008,263771000002','');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertTrue($response->isOk());
 

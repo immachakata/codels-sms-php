@@ -79,4 +79,9 @@ class Sms
             'sendDateTime' => date('H:i', self::$timestamp),
         ];
     }
+
+    public function __toString()
+    {
+        return json_encode($this->toArray());
+    }
 }
