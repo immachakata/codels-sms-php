@@ -205,42 +205,11 @@ final class Client implements ClientInterface
             ]
         ];
 
-        // create sms objects for all messages
-        $smsObjects = [];
-        foreach ($this->receivers as $index => $receiver) {
 
-            if ($this->templateCallback) {
-
-                // message should not be an Sms instance
-                if ($this->sms instanceof Sms) {
-                    $smsObject = call_user_func($this->templateCallback, $receiver, $this->sms);
-                } else {
-                    $smsObject = call_user_func($this->templateCallback, $receiver, null);
-                }
-
-                if (is_string($smsObject)) {
-                    $smsObject = Sms::new($receiver, $smsObject);
-                }
-
-                if ($smsObject instanceof Sms) {
-                    if (!$smsObject->toArray()['destination']) {
-                        $smsObject = $smsObject::setReceiver($receiver);
-                    }
-                    $smsObjects[] = $smsObject->toArray();
-                } else {
-                    throw new \Exception('Callback function should return an Sms instance or message string.');
-                }
-            } else {
-                $smsObject = null;
-                if ($this->sms instanceof Sms) {
-                    $smsObject = $this->sms->toArray();
-                    $smsObject['destination'] = $receiver;
-                }
-
-                $smsObjects[] = $smsObject;
-            }
+        foreach ($this->messages as $message) {
+            $requestJson['payload']['messages'][] = $message->toArray();
         }
-        $requestJson['payload']['messages'] = $smsObjects;
+
 
         // check if there are any messages to send
         if (count($requestJson['payload']['messages']) === 0) {
@@ -295,7 +264,6 @@ final class Client implements ClientInterface
         // if first param is a list of Sms'
         // get receivers numbers from the object
         if (is_array($receivers) && count($receivers) > 1 && $receivers[1] instanceof Sms) {
-            $this->sms = null;
             foreach ($receivers as $receiver) {
                 if ($receiver instanceof Sms) {
                     $this->receivers[] = $receiver->toArray()['destination'];
@@ -325,7 +293,6 @@ final class Client implements ClientInterface
         }
 
         if ($this->isBulkSms() && $receivers[1] instanceof Sms) {
-            $this->sms = null;
             foreach ($receivers as $receiver) {
                 if ($receiver instanceof Sms) {
                     $this->messages[] = $receiver;
@@ -340,10 +307,17 @@ final class Client implements ClientInterface
             }
         }
 
-        if ($this->isBulkSms() && empty($message) && !empty($this->templateCallback)) {
+        // if template callback provided, use message as a param
+        if ($this->isBulkSms() && !empty($this->templateCallback)) {
             foreach ($this->receivers as $index => $receiver) {
                 if (!$receiver) continue;
-                $text = call_user_func($this->templateCallback, $receiver, $message);
+                $param = null;
+                if (is_array($message)) {
+                    $param = $message[$index] ?? $message[$receiver] ?? null;
+                } else if (is_string($message)) {
+                    $param = $message;
+                }
+                $text = call_user_func($this->templateCallback, $receiver, $param);
 
                 if (is_string(trim($text))) {
                     $this->messages[] = Sms::new($receiver, $text);
