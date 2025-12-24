@@ -16,7 +16,7 @@ use IsaacMachakata\CodelSms\Interface\ClientInterface;
 final class Client implements ClientInterface
 {
     const MAX_RECEIVERS = 3500;
-    const MAX_SMS_LENGTH = 3 * 160;
+    const MAX_SMS_LENGTH = 6 * 160;
 
     private GuzzleClient $client;
     private array|string $config;
@@ -44,7 +44,7 @@ final class Client implements ClientInterface
      * @param string $senderID
      * @return Client
      */
-    public function from(string|null $senderID) : Client
+    public function from(string|null $senderID): Client
     {
         $this->senderID = $senderID;
         return $this;
@@ -57,7 +57,7 @@ final class Client implements ClientInterface
      * @param callable $templateCallback
      * @return Client
      */
-    public function personalize(callable $templateCallback) : Client
+    public function personalize(callable $templateCallback): Client
     {
         $this->templateCallback = $templateCallback;
         return $this;
@@ -81,7 +81,7 @@ final class Client implements ClientInterface
      * 
      * @return int|object
      */
-    public function getBalance():int|object
+    public function getBalance(): int|object
     {
         $uri = Urls::BASE_URL . Urls::BALANCE_ENDPOINT;
         $response = $this->client->request('post', $uri, [
@@ -178,11 +178,11 @@ final class Client implements ClientInterface
      */
     private function sendBulkMessages()
     {
-        if (!$this->messages || !$this->templateCallback) {
+        if (!$this->messages && !$this->templateCallback) {
             throw new \Exception('Messages can not be empty!');
         }
 
-        if (count($this->messages) !== count($this->receivers)) {
+        if (count($this->messages) !== count($this->receivers) && !$this->templateCallback) {
             throw new \Exception('Number of receivers and messages do not match.');
         }
 
@@ -220,8 +220,8 @@ final class Client implements ClientInterface
 
                 if (is_string($smsObject)) {
                     $smsObject = Sms::new($receiver, $smsObject);
-                } 
-                
+                }
+
                 if ($smsObject instanceof Sms) {
                     if (!$smsObject->toArray()['destination']) {
                         $smsObject = $smsObject::setReceiver($receiver);
@@ -273,7 +273,12 @@ final class Client implements ClientInterface
         if (is_string($receivers) && strpos($receivers, ',') !== false) {
             $receivers = explode(',', $receivers);
         }
-        $receivers = (array) $receivers;
+
+        if (is_array($receivers) && !array_is_list($receivers)) {
+            $receivers = array_keys($receivers);
+        } else {
+            $receivers = (array) $receivers;
+        }
 
         if (is_array($receivers) && is_array($message) && count($receivers) !== count($message)) {
             throw new Exception('Number of receivers and messages do not match.');
@@ -287,13 +292,19 @@ final class Client implements ClientInterface
             $this->receivers = array_filter($receivers);
         }
 
+        // if first param is a list of Sms'
+        // get receivers numbers from the object
         if (is_array($receivers) && count($receivers) > 1 && $receivers[1] instanceof Sms) {
             $this->sms = null;
-            array_map(function (Sms $sms) {
-                $this->receivers[] = $sms->toArray()['destination'];
-            }, $receivers);
+            foreach ($receivers as $receiver) {
+                if ($receiver instanceof Sms) {
+                    $this->receivers[] = $receiver->toArray()['destination'];
+                }
+            }
         }
 
+        // if user passed an array with one receiver and a message
+        // create an Sms object with the message
         if (is_array($receivers) && count($receivers) === 1) {
             if (is_string($message)) {
                 $this->sms = Sms::new($receivers[0], $message);
@@ -302,13 +313,11 @@ final class Client implements ClientInterface
             }
         }
 
-        // configure messages
-        if ($message instanceof Sms) {
-            $this->messages = $message->toArray();
-        }
+        // clear messages variable
+        $this->messages = [];
 
-        if ($message instanceof Sms) {
-            $this->messages = [];
+        // set messages to an Sms object with new correct receiver
+        if ($message instanceof Sms && $this->isBulkSms()) {
             foreach ($this->receivers as $index => $receiver) {
                 if (!$receiver) continue;
                 $this->messages[] = $message::setReceiver($receiver);
@@ -316,7 +325,6 @@ final class Client implements ClientInterface
         }
 
         if (is_string($message) && $this->isBulkSms()) {
-            $this->messages = [];
             foreach ($this->receivers as $index => $receiver) {
                 if (!$receiver) continue;
                 $this->messages[] = Sms::new($receiver, $message);
@@ -324,7 +332,6 @@ final class Client implements ClientInterface
         }
 
         if ($this->isBulkSms() && empty($message) && !empty($this->templateCallback)) {
-            $this->messages = [];
             foreach ($this->receivers as $index => $receiver) {
                 if (!$receiver) continue;
                 $text = call_user_func($this->templateCallback, $receiver, $message);
@@ -337,6 +344,17 @@ final class Client implements ClientInterface
                     throw new \Exception('Callback function should return an Sms instance or message string.');
                 }
             }
+        }
+
+        // check messages lengths
+        if ($this->isBulkSms()) {
+            foreach ($this->messages as $message) {
+                if ($message instanceof Sms && strlen($message->toArray()['messageText']) > self::MAX_SMS_LENGTH) {
+                    throw new \Exception('Message length cannot exceed 6 message parts.');
+                }
+            }
+        } else if ($this->sms && strlen($this->sms->toArray()['messageText']) > self::MAX_SMS_LENGTH) {
+            throw new \Exception('Message length cannot exceed 6 message parts.');
         }
     }
 }
