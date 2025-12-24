@@ -5,6 +5,7 @@ namespace IsaacMachakata\CodelSms;
 use Exception;
 use GuzzleHttp\Client as GuzzleClient;
 use IsaacMachakata\CodelSms\Exception\MalformedConfigException;
+use IsaacMachakata\CodelSms\Interface\ClientInterface;
 
 /**
  * Allows you to send sms's from your PHP app.
@@ -12,8 +13,11 @@ use IsaacMachakata\CodelSms\Exception\MalformedConfigException;
  * @throws MalformedConfigException
  * @final
  */
-final class Client //implements ClientInterface
+final class Client implements ClientInterface
 {
+    const MAX_RECEIVERS = 3500;
+    const MAX_SMS_LENGTH = 3 * 160;
+
     private GuzzleClient $client;
     private array|string $config;
 
@@ -35,12 +39,12 @@ final class Client //implements ClientInterface
     }
 
     /** 
-     * Uses set sender id instead of the default one.
+     * Specify sender id for the message to be sent.
      * 
      * @param string $senderID
      * @return Client
      */
-    public function from(string|null $senderID)
+    public function from(string|null $senderID) : Client
     {
         $this->senderID = $senderID;
         return $this;
@@ -53,7 +57,7 @@ final class Client //implements ClientInterface
      * @param callable $templateCallback
      * @return Client
      */
-    public function setCallback(callable $templateCallback)
+    public function personalize(callable $templateCallback) : Client
     {
         $this->templateCallback = $templateCallback;
         return $this;
@@ -77,7 +81,7 @@ final class Client //implements ClientInterface
      * 
      * @return int|object
      */
-    public function getBalance()
+    public function getBalance():int|object
     {
         $uri = Urls::BASE_URL . Urls::BALANCE_ENDPOINT;
         $response = $this->client->request('post', $uri, [
@@ -174,7 +178,7 @@ final class Client //implements ClientInterface
      */
     private function sendBulkMessages()
     {
-        if (is_null($this->messages) || empty($this->messages)) {
+        if (!$this->messages || !$this->templateCallback) {
             throw new \Exception('Messages can not be empty!');
         }
 
@@ -182,12 +186,12 @@ final class Client //implements ClientInterface
             throw new \Exception('Number of receivers and messages do not match.');
         }
 
-        if (empty($this->messages) && !$this->templateCallback) {
-            throw new \Exception('Message(s) can not be empty.');
-        }
-
         if (empty($this->senderID)) {
             throw new \Exception('Sender ID is required for bulk messages.');
+        }
+
+        if (count($this->receivers) > self::MAX_RECEIVERS) {
+            throw new \Exception('Recipients cannot exceed 3500.');
         }
 
         $requestJson = [
@@ -208,14 +212,17 @@ final class Client //implements ClientInterface
             if ($this->templateCallback) {
 
                 // message should not be an Sms instance
-                if ($this->messages instanceof Sms) {
-                    $this->messages = $this->messages->toArray();
+                if ($this->sms instanceof Sms) {
+                    $smsObject = call_user_func($this->templateCallback, $receiver, $this->sms);
+                } else {
+                    $smsObject = call_user_func($this->templateCallback, $receiver, null);
                 }
-                $smsObject = call_user_func($this->templateCallback, $receiver, $this->messages);
 
                 if (is_string($smsObject)) {
-                    $smsObjects[] = Sms::new($receiver, $smsObject)->toArray();
-                } else if ($smsObject instanceof Sms) {
+                    $smsObject = Sms::new($receiver, $smsObject);
+                } 
+                
+                if ($smsObject instanceof Sms) {
                     if (!$smsObject->toArray()['destination']) {
                         $smsObject = $smsObject::setReceiver($receiver);
                     }
@@ -224,11 +231,13 @@ final class Client //implements ClientInterface
                     throw new \Exception('Callback function should return an Sms instance or message string.');
                 }
             } else {
-                if ($message instanceof Sms) {
-                    $message = $message->toArray();
+                $smsObject = null;
+                if ($this->sms instanceof Sms) {
+                    $smsObject = $this->sms->toArray();
+                    $smsObject['destination'] = $receiver;
                 }
 
-                $smsObjects[] = $message;
+                $smsObjects[] = $smsObject;
             }
         }
         $requestJson['payload']['messages'] = $smsObjects;
@@ -297,6 +306,7 @@ final class Client //implements ClientInterface
         if ($message instanceof Sms) {
             $this->messages = $message->toArray();
         }
+
         if ($message instanceof Sms) {
             $this->messages = [];
             foreach ($this->receivers as $index => $receiver) {
@@ -304,6 +314,7 @@ final class Client //implements ClientInterface
                 $this->messages[] = $message::setReceiver($receiver);
             }
         }
+
         if (is_string($message) && $this->isBulkSms()) {
             $this->messages = [];
             foreach ($this->receivers as $index => $receiver) {

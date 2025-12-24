@@ -159,13 +159,13 @@ class ClientTest extends TestCase
         $this->mockSuccess();
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Message(s) can not be empty.');
-        $this->client->from('demo')->send(['263771000001','263771000002'], '');
+        $this->client->from('demo')->send(['263771000001', '263771000002'], '');
     }
 
     public function testPersonalizedMessagesWithoutSenderName()
     {
         $this->mockSuccess();
-        $this->client->setCallback(function ($receiver, $message) {
+        $this->client->personalize(function ($receiver, $message) {
             return Sms::new($receiver, "Hie there!", null, strtotime("+5 minutes"));
         });
         $this->expectException(\Exception::class);
@@ -176,8 +176,7 @@ class ClientTest extends TestCase
     public function testSendPersonalizedMessagesWithSuccess()
     {
         $this->mockSuccess();
-        $this->client->from('test-sender');
-        $this->client->setCallback(function ($receiver, $message) {
+        $this->client->from('test-sender')->personalize(function ($receiver, $message) {
             return Sms::new($receiver, "Hie there!", null, strtotime("+5 minutes"));
         });
         $response = $this->client->send('263771000008,263771000002');
@@ -185,11 +184,10 @@ class ClientTest extends TestCase
         $this->assertTrue($response->isOk());
 
         $this->mockSuccess();
-        $this->client->from('test-sender');
-        $this->client->setCallback(function ($receiver, $message) {
+        $this->client->from('test-sender')->personalize(function ($receiver) {
             return Sms::new($receiver, "Hie there!", null, strtotime("+5 minutes"));
         });
-        $response = $this->client->send('263771000008,263771000002','');
+        $response = $this->client->send('263771000008,263771000002', '');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertTrue($response->isOk());
 
@@ -198,7 +196,7 @@ class ClientTest extends TestCase
             '263772000002' => ['name' => 'Jane', 'bill' => 200.00],
         ];
         $phoneNumbers = array_keys($users);
-        $this->client->setCallback(function ($receiver, $user) {
+        $this->client->personalize(function ($receiver, $user) {
             return Sms::new("Dear {$user['name']}, your bill of \${$user['bill']} is due.");
         });
         $this->mockSuccess();
