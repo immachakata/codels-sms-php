@@ -132,8 +132,10 @@ class ClientTest extends TestCase
         );
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertFalse($response->isOk());
+    }
 
-        // test fail
+    public function testServerErrorSendingMessage()
+    {
         $this->mockFailure(200);
         $response = $this->client->send('263771000001,', 'Test message');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
