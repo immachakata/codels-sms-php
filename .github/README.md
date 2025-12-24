@@ -77,7 +77,7 @@ $response = $client->send($phoneNumbers, 'This is a bulk message to everyone.');
 
 ### Sending Personalized Messages in Bulk
 
-For more advanced use cases, you can send different messages to different recipients in a single API call. Use the `setCallback` method to define a template for your messages. The callback receives the phone number and should return either an `Sms` object or a string - which is the message.
+For more advanced use cases, you can send different messages to different recipients in a single API call. Use the `personalize` method to define a template for your messages. The callback receives the phone number and should return either an `Sms` object or a string - which is the message.
 
 ```php
 use IsaacMachakata\CodelSms\Sms;
@@ -90,7 +90,7 @@ $users = [
 $phoneNumbers = array_keys($users);
 
 // the message parameter is also passed here too to the callback function
-$client->setCallback(function ($receiver, $data) {
+$client->personalize(function ($receiver, $data) {
     return Sms::new("Dear {$data['name']}, your bill of \${$data['bill']} is due.");
 });
 
