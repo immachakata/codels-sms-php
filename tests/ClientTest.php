@@ -174,11 +174,14 @@ class ClientTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Message can not be empty.');
         $this->client->send(['263771000001'], '');
+    }
 
+    public function testCantSendMessagesWhenBlank()
+    {
         $this->mockSuccess();
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Message(s) can not be empty.');
-        $this->client->from('demo')->send(['263771000001', '263771000002'], '');
+        $this->expectExceptionMessage('Messages can not be empty');
+        $this->client->from('sender-id')->send(['263771000001', '263771000002'], '');
     }
 
     public function testPersonalizedMessagesWithoutSenderName()
