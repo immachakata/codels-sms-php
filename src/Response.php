@@ -30,7 +30,7 @@ class Response implements ResponseInterface
         if ($this->bulkMessages) {
             return strtoupper($this->responseBody[0]->status->error_status);
         }
-        return !empty($this->responseBody) ? $this->responseBody->status : 'FAILED';
+        return isset($this->responseBody->status) ? $this->responseBody->status : 'FAILED';
     }
     public function getMessageId(): string|null
     {
