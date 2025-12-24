@@ -305,7 +305,7 @@ final class Client implements ClientInterface
 
         // if user passed an array with one receiver and a message
         // create an Sms object with the message
-        if (is_array($receivers) && count($receivers) === 1) {
+        if (!$this->isBulkSms()) {
             if (is_string($message)) {
                 $this->sms = Sms::new($receivers[0], $message);
             } else if ($message instanceof Sms) {
