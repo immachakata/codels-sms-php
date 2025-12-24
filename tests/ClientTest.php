@@ -8,7 +8,6 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use IsaacMachakata\CodelSms\Exception\MalformedConfigException;
 use IsaacMachakata\CodelSms\Sms;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 class ClientTest extends TestCase
 {
@@ -125,6 +124,15 @@ class ClientTest extends TestCase
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertTrue($response->isOk());
 
+        $this->mockSuccess();
+        $timestamp = strtotime("+2 minutes");
+        $response = $this->client->from('demo')->send(
+            ["263771000001", "263771000002"],
+            Sms::new('263771000001', "Test message scheduled for " . date('H:i', $timestamp), null, $timestamp)
+        );
+        $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
+        $this->assertFalse($response->isOk());
+
         // test fail
         $this->mockFailure(200);
         $response = $this->client->send('263771000001,', 'Test message');
@@ -179,7 +187,7 @@ class ClientTest extends TestCase
         $this->client->from('test-sender')->personalize(function ($receiver, $message) {
             return Sms::new($receiver, "Hie there!", null, strtotime("+5 minutes"));
         });
-        $response = $this->client->send('263771000008,263771000002');
+        $response = $this->client->send('263771000001,263771000002');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertTrue($response->isOk());
 
@@ -187,7 +195,7 @@ class ClientTest extends TestCase
         $this->client->from('test-sender')->personalize(function ($receiver) {
             return Sms::new($receiver, "Hie there!", null, strtotime("+5 minutes"));
         });
-        $response = $this->client->send('263771000008,263771000002', '');
+        $response = $this->client->send('263771000001,263771000002', '');
         $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
         $this->assertTrue($response->isOk());
 
