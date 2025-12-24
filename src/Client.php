@@ -178,7 +178,7 @@ final class Client implements ClientInterface
      */
     private function sendBulkMessages()
     {
-        if (!$this->messages && !$this->templateCallback) {
+        if (empty($this->messages) && !$this->templateCallback) {
             throw new \Exception('Messages can not be empty!');
         }
 
@@ -333,7 +333,7 @@ final class Client implements ClientInterface
             }
         }
 
-        if (is_string($message) && $this->isBulkSms()) {
+        if (is_string($message) && !empty($message) && $this->isBulkSms()) {
             foreach ($this->receivers as $index => $receiver) {
                 if (!$receiver) continue;
                 $this->messages[] = Sms::new($receiver, $message);
