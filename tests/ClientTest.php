@@ -140,6 +140,17 @@ class ClientTest extends TestCase
         $this->assertFalse($response->isOk());
     }
 
+    public function testBulkSmsWithMultipleSmsObjectOnly()
+    {
+        $this->mockSuccess(200);
+        $response = $this->client->from('sender-id')->send([
+            Sms::new('263771000001', "Hie there from #[sbm]!", null, strtotime("+5 minutes")),
+            Sms::new('263771000002', "Hie there from #[sbm]!", null, strtotime("+5 minutes")),
+        ]);
+        $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
+        $this->assertTrue($response->isOk());
+    }
+
     public function testSendThrowsExceptionWithMismatchedReceiversAndMessages()
     {
         $this->expectException(\Exception::class);
