@@ -324,6 +324,15 @@ final class Client implements ClientInterface
             }
         }
 
+        if ($this->isBulkSms() && $receivers[1] instanceof Sms) {
+            $this->sms = null;
+            foreach ($receivers as $receiver) {
+                if ($receiver instanceof Sms) {
+                    $this->messages[] = $receiver;
+                }
+            }
+        }
+
         if (is_string($message) && $this->isBulkSms()) {
             foreach ($this->receivers as $index => $receiver) {
                 if (!$receiver) continue;
