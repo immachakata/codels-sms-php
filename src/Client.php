@@ -178,7 +178,7 @@ final class Client implements ClientInterface
      */
     private function sendBulkMessages()
     {
-        if (empty($this->messages) && !$this->templateCallback) {
+        if (empty($this->messages)) {
             throw new \Exception('Messages can not be empty!');
         }
 
@@ -205,21 +205,14 @@ final class Client implements ClientInterface
             ]
         ];
 
-
         foreach ($this->messages as $message) {
             $requestJson['payload']['messages'][] = $message->toArray();
-        }
-
-
-        // check if there are any messages to send
-        if (count($requestJson['payload']['messages']) === 0) {
-            throw new \Exception('No messages to send.');
         }
 
         // check if there is only one message to send
         if (count($requestJson['payload']['messages']) === 1) {
             $message = $requestJson['payload']['messages'][0];
-            return $this->sendSingleMessage($message['destination'], $message['messageText']);
+            return $this->sendSingleMessage($message);
         }
 
         $uri = Urls::BASE_URL . Urls::MULTIPLE_SMS_ENDPOINT;
@@ -271,6 +264,11 @@ final class Client implements ClientInterface
             }
         }
 
+        // if receiver is an array and has one entity, convert to sms
+        if (is_array($receivers) && count($receivers) === 1 && $receivers[0] instanceof Sms) {
+            $this->sms = $receivers[0];
+        }
+
         // if user passed an array with one receiver and a message
         // create an Sms object with the message
         if (!$this->isBulkSms()) {
@@ -278,6 +276,7 @@ final class Client implements ClientInterface
                 $this->sms = Sms::new($receivers[0], $message);
             } else if ($message instanceof Sms) {
                 $this->sms = $message;
+                $this->sms::setReceiver($receivers[0]);
             }
         }
 

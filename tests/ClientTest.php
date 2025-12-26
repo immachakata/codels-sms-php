@@ -178,6 +178,19 @@ class ClientTest extends TestCase
         $this->client->send(['263771000001'], '');
     }
 
+    public function testSendOneSmsAsBulk()
+    {
+        $this->mockSuccess(200, ['status' => 'success']);
+        $timestamp = strtotime("+3 minutes");
+        $messages = [
+            Sms::new('263783243738', "Test message scheduled for: " . date("H:i", $timestamp), null, $timestamp)
+        ];
+        $response = $this->client->send($messages);
+        $this->assertInstanceOf(\IsaacMachakata\CodelSms\Response::class, $response);
+        // json_encode($response->getBody());
+        $this->assertTrue($response->isOk());
+    }
+
     public function testCantSendMessagesWhenBlank()
     {
         $this->mockSuccess();

@@ -2,6 +2,8 @@
 
 namespace IsaacMachakata\CodelSms;
 
+use IsaacMachakata\CodelSms\Exception\InvalidPhoneNumber;
+
 /**
  * Represents an sms instance for the codel bulk sms service.
  * @author Isaac Machakata <hie@isaac.co.zw>
@@ -25,12 +27,12 @@ class Sms
      * @param string $validity
      * @return self
      */
-    public static function new(string $destination, ?string $message = null, ?string $reference = null, ?string $timestamp = null, ?string $validity = '03:00'): self
+    public static function new(string $destination, ?string $message = null, ?string $reference = null, ?string $timestamp = null, ?string $validity = ''): self
     {
         // make sure optional variables are populated
         if (empty($timestamp)) {
             $timestamp = time();
-        } elseif ($timestamp >= time() && $validity == '03:00') {
+        } elseif ($timestamp >= time() && $validity == '') {
             $validity = date('H:i', $timestamp);
         }
         if (empty($reference)) $reference = uniqid();
@@ -55,6 +57,7 @@ class Sms
      * Sets the receivers phone number.
      *
      * @param string $destination
+     * @throws InvalidPhoneNumber
      * @return self
      */
     public static function setReceiver(string $destination)
