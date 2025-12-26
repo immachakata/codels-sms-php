@@ -232,13 +232,15 @@ final class Client implements ClientInterface
 
     private function configMessageParts(string|array|Sms $receivers, string|array|Sms|null $message = null)
     {
-        if (is_string($receivers) && strpos($receivers, ',') !== false) {
-            $receivers = explode(',', $receivers);
+        // if receivers is a string, convert to array
+        if (is_string($receivers)) {
+            $receivers = str_replace(',', ' ', $receivers);
+            $receivers = explode(' ', trim($receivers));
         }
 
         if (is_array($receivers) && !array_is_list($receivers)) {
             $receivers = array_keys($receivers);
-        } else {
+        } else if (!$receivers instanceof Sms) {
             $receivers = (array) $receivers;
         }
 
@@ -259,7 +261,7 @@ final class Client implements ClientInterface
         if (is_array($receivers) && count($receivers) > 1 && $receivers[1] instanceof Sms) {
             foreach ($receivers as $receiver) {
                 if ($receiver instanceof Sms) {
-                    $this->receivers[] = $receiver->toArray()['destination'];
+                    $this->receivers[] = $receiver->getDestination();
                 }
             }
         }
@@ -272,11 +274,22 @@ final class Client implements ClientInterface
         // if user passed an array with one receiver and a message
         // create an Sms object with the message
         if (!$this->isBulkSms()) {
-            if (is_string($message)) {
+            if (is_string($message) && !empty($message)) {
                 $this->sms = Sms::new($receivers[0], $message);
+            } else if ($receivers instanceof Sms) {
+                $this->sms = $receivers;
             } else if ($message instanceof Sms) {
                 $this->sms = $message;
-                $this->sms::setReceiver($receivers[0]);
+                $this->sms->setReceiver($receivers[0]);
+            }
+
+
+            if ($this->sms && strlen($this->sms->toArray()['messageText']) > self::MAX_SMS_LENGTH) {
+                throw new \Exception('Message length cannot exceed 6 message parts.');
+            }
+            
+            if($this->sms instanceof Sms && !$this->sms->getDestination()){
+                throw new \Exception('Destination can not be empty.');
             }
         }
 
@@ -287,11 +300,11 @@ final class Client implements ClientInterface
         if ($message instanceof Sms && $this->isBulkSms()) {
             foreach ($this->receivers as $index => $receiver) {
                 if (!$receiver) continue;
-                $this->messages[] = $message::setReceiver($receiver);
+                $this->messages[] = $message->setReceiver($receiver);
             }
         }
 
-        if ($this->isBulkSms() && $receivers[1] instanceof Sms) {
+        if (is_array($this->receivers) && count($this->receivers) > 1 && $receivers[1] instanceof Sms) {
             foreach ($receivers as $receiver) {
                 if ($receiver instanceof Sms) {
                     $this->messages[] = $receiver;
@@ -321,6 +334,7 @@ final class Client implements ClientInterface
                 if (is_string(trim($text))) {
                     $this->messages[] = Sms::new($receiver, $text);
                 } else if ($text instanceof Sms) {
+                    $text = $text->setReceiver($receiver);
                     $this->messages[] = $text;
                 } else {
                     throw new \Exception('Callback function should return an Sms instance or message string.');
@@ -335,8 +349,6 @@ final class Client implements ClientInterface
                     throw new \Exception('Message length cannot exceed 6 message parts.');
                 }
             }
-        } else if ($this->sms && strlen($this->sms->toArray()['messageText']) > self::MAX_SMS_LENGTH) {
-            throw new \Exception('Message length cannot exceed 6 message parts.');
         }
     }
 }
