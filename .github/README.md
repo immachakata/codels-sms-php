@@ -59,11 +59,22 @@ $response = $client->send($sms);
 
 ### Sending Bulk SMS
 
-To send the same message to multiple recipients, you can pass an array of phone numbers or a comma-separated string of phone numbers, and an array of messages either indexed by phone number, or by index. Passing a string will result in all the users receiving the same message.
+To send the same message to multiple recipients, you can pass an array of phone numbers or a comma-separated string of phone numbers, and an array of messages either indexed by phone number, or by index. Passing a string will result in all the users receiving the same message. The easiest way though would be using the `Sms` class (or whatever you'd prefer).
 
 > **NB**: A sender id is required when sending multiple messages and an exception will be thrown if one is not provided.
 
+**Using the `Sms` class:**
+```php
+$response = $client->send([
+    Sms::new('2637710000001', 'Message for user #1'),
+    Sms::new('2637710000002', 'Message for user #2'),
+]);
+```
+While you can specify the timestamp at which you would want the message delivered, it hasn't seemed to work when I tried it, so I'd recommend you to send your messages exactly when you want them delivered.
+
 **Using an array:**
+
+For this method, you can pass in an array of receivers along with either a string of the message you want them to receive, or any array with the messages you want each to receive.
 ```php
 $phoneNumbers = ['263771000001', '263772000002', '263773000003'];
 $response = $client->send($phoneNumbers, 'This is a bulk message to everyone.');
@@ -103,15 +114,15 @@ $response = $client->send($phoneNumbers, $users);
 You can specify a custom sender ID for your messages. This can be a name or a number.
 
 ```php
-$client->from('MyCompany');
-$response = $client->send('263771000001', 'Message from MyCompany.');
+$txt = Sms::new('263771000001', 'Message from SenderId.');
+$response = $client->from('SenderId')->send($txt);
 ```
 
 You can also set the sender ID directly in the constructor:
 
 ```php
-$client = new Client($apiToken, 'MyCompany');
-$response = $client->send('263771000001', 'Message from MyCompany.');
+$client = new Client($apiToken, 'SenderId');
+$response = $client->send('263771000001', 'Message from SenderId.');
 ```
 
 ### Checking Your Balance
