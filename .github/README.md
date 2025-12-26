@@ -103,7 +103,7 @@ $response = $client->send($phoneNumbers, $users);
 You can specify a custom sender ID for your messages. This can be a name or a number.
 
 ```php
-$client->setSenderId('MyCompany');
+$client->from('MyCompany');
 $response = $client->send('263771000001', 'Message from MyCompany.');
 ```
 
