@@ -11,11 +11,29 @@ use IsaacMachakata\CodelSms\Exception\InvalidPhoneNumber;
 
 class Sms
 {
-    private static string $destination;
-    private static string $message;
-    private static ?string $reference = null;
-    private static ?string $timestamp = null;
-    private static ?string $validity = '03:00';
+    private string $destination;
+    private string $message;
+    private ?string $reference;
+    private ?int $timestamp;
+    private ?string $validity;
+
+    private function __construct(
+        string $destination,
+        string $message,
+        ?string $reference,
+        ?int $timestamp,
+        ?string $validity
+    ) {
+        if (!empty(trim($destination))) {
+            $this->destination = Utils::formatNumber($destination);
+        } else {
+            $this->destination = $destination;
+        }
+        $this->message = $message;
+        $this->reference = $reference;
+        $this->timestamp = $timestamp;
+        $this->validity = $validity;
+    }
 
     /**
      * Creates a new message instance and returns the back the data in an array formatted for the API.
@@ -29,41 +47,58 @@ class Sms
      */
     public static function new(string $destination, ?string $message = null, ?string $reference = null, ?string $timestamp = null, ?string $validity = ''): self
     {
-        // make sure optional variables are populated
+        $finalDestination = $destination;
+        $finalMessage = $message;
+
+        if (is_null($message)) {
+            $finalMessage = $destination;
+            $finalDestination = "";
+        }
+
         if (empty($timestamp)) {
             $timestamp = time();
         } elseif ($timestamp >= time() && $validity == '') {
             $validity = date('H:i', $timestamp);
         }
-        if (empty($reference)) $reference = uniqid();
-
-        // set values to the properties
-        if (!empty($message)) {
-            self::$message = $message;
-            self::$destination = Utils::formatNumber($destination);
-        } else {
-            self::$message = $destination;
-            self::$destination = "";
+        if (empty($reference)) {
+            $reference = uniqid();
         }
-        self::$timestamp = $timestamp;
-        self::$reference = $reference;
-        self::$validity = $validity;
+        if (empty($validity)) {
+            $validity = '03:00';
+        }
 
-        // return instance
-        return new Sms;
+        if (!empty($finalDestination)) {
+            $finalDestination = Utils::formatNumber($finalDestination);
+        }
+
+        return new self($finalDestination, $finalMessage, $reference, $timestamp, $validity);
     }
 
     /**
-     * Sets the receivers phone number.
+     * Sets the receivers phone number and returns a new Sms instance.
      *
      * @param string $destination
      * @throws InvalidPhoneNumber
      * @return self
      */
-    public static function setReceiver(string $destination)
+    public function setReceiver(string $destination): self
     {
-        self::$destination = Utils::formatNumber($destination);
-        return new Sms;
+        return new self(
+            Utils::formatNumber($destination),
+            $this->message,
+            $this->reference,
+            $this->timestamp,
+            $this->validity
+        );
+    }
+
+    /**
+     * Returns the phone number of the receiver.
+     *
+     */
+    public function getDestination(): string
+    {
+        return $this->destination;
     }
 
     /**
@@ -71,19 +106,19 @@ class Sms
      *
      * @return array
      */
-    public static function toArray()
+    public function toArray(): array
     {
         return [
-            'destination' => self::$destination,
-            'messageText' => self::$message,
-            'messageReference' => self::$reference,
+            'destination' => $this->destination,
+            'messageText' => $this->message,
+            'messageReference' => $this->reference,
             'messageDate' => date('YmdHis'),
-            'messageValidity' => self::$validity,
-            'sendDateTime' => date('H:i', self::$timestamp),
+            'messageValidity' => $this->validity,
+            'sendDateTime' => date('H:i', $this->timestamp),
         ];
     }
 
-    public function __toString()
+    public function __toString(): string
     {
         return json_encode($this->toArray());
     }

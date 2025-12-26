@@ -32,8 +32,8 @@ class SmsTest extends TestCase
     #[DataProvider('addValidTestPhoneNumbers')]
     public function testValidPhoneNumberIsFormatted(string $phone)
     {
-        $sms = Sms::new($phone, "Hello world!")->toArray();
-        $this->assertEquals('263771000000', $sms['destination']);
+        $sms = Sms::new($phone, "Hello world!");
+        $this->assertEquals('263771000000', $sms->getDestination());
     }
     public static function addValidTestPhoneNumbers(): array
     {
