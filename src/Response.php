@@ -18,19 +18,19 @@ class Response implements ResponseInterface
             $this->responseBody = json_decode($this->response->getBody());
         }
     }
-    public function getCreditsUsed(): int
+    public function getCreditsUsed(): int|null
     {
         if ($this->bulkMessages) {
-            return 0;
+            return null;
         }
-        return !empty($this->responseBody) ? $this->responseBody->charge : 0;
+        return !empty($this->getBody()) ? $this->getBody()->charge : 0;
     }
     public function getMessageStatus(): string
     {
         if ($this->bulkMessages) {
-            return strtoupper($this->responseBody[0]->status->error_status);
+            return strtoupper($this->getBody()->status->error_status);
         }
-        return isset($this->responseBody->status) ? $this->responseBody->status : 'FAILED';
+        return isset($this->getBody()->status) ? $this->getBody()->status : 'FAILED';
     }
     public function getMessageId(): string|null
     {
@@ -47,11 +47,11 @@ class Response implements ResponseInterface
         $results = ['FAILED', 'ERROR'];
         return !in_array(strtoupper($this->getMessageStatus()), $results);
     }
-    public function getBody(): array|object
+    public function getBody(): object
     {
         if ($this->bulkMessages) {
-            return $this->responseBody;
+            return (object) $this->responseBody[0];
         }
-        return $this->responseBody;
+        return (object) $this->responseBody;
     }
 }
