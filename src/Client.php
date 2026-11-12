@@ -84,7 +84,7 @@ final class Client implements ClientInterface
     public function getBalance(): int|object
     {
         $uri = Urls::BASE_URL . Urls::BALANCE_ENDPOINT;
-        $response = $this->client->request('post', $uri, [
+        $response = $this->client->request('POST', $uri, [
             'headers' => [
                 'Accept' => 'application/json'
             ],
@@ -161,7 +161,7 @@ final class Client implements ClientInterface
             $uri = Urls::BASE_URL . Urls::SINGLE_SMS_ENDPOINT_DEFAULT_SENDER;
         }
 
-        $response = $this->client->request('post', $uri, [
+        $response = $this->client->request('POST', $uri, [
             'headers' => [
                 'Accept' => 'application/json'
             ],
@@ -216,7 +216,7 @@ final class Client implements ClientInterface
         }
 
         $uri = Urls::BASE_URL . Urls::MULTIPLE_SMS_ENDPOINT;
-        $response = $this->client->request('post', $uri, [
+        $response = $this->client->request('POST', $uri, [
             'headers' => [
                 'Accept' => 'application/json'
             ],
